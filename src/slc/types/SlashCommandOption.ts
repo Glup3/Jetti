@@ -1,7 +1,8 @@
+import { ApplicationCommandOptionType } from './ApplicationCommandOptionType';
 import { SlashCommandOptionChoice } from './SlashCommandOptionChoice';
 
 export interface SlashCommandOption {
-  type: number;
+  type: ApplicationCommandOptionType;
   name: string;
   description: string;
   required?: boolean;

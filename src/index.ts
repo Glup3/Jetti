@@ -48,5 +48,5 @@ client.registry
 
 (async () => {
   await client.login(process.env.BOT_TOKEN);
-  await registerSlashCommands(client.user.id);
+  await registerSlashCommands(client.user.id, client);
 })();
