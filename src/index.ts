@@ -17,9 +17,9 @@ const client = new CommandoClient({
 });
 
 client
-  .on('error', logger.error.bind(logger))
-  .on('warn', logger.warn.bind(logger))
-  .on('debug', logger.debug.bind(logger))
+  .on('error', (message) => logger.error(message))
+  .on('warn', (message) => logger.warn(message))
+  .on('debug', (message) => logger.debug(message))
   .on('ready', async () => {
     logger.info(`Client ready: logged in as ${client.user.username}#${client.user.discriminator} (${client.user.id})`);
 
