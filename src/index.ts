@@ -1,11 +1,12 @@
+// eslint-disable-next-line @typescript-eslint/no-var-requires
+require('dotenv').config();
+
 import { CommandoClient } from 'discord.js-commando';
 import path from 'path';
 import { botStatus } from './constants';
 import { randomStatus } from './core/status';
+import { registerSlashCommands } from './slc/slc';
 import { logger } from './util/logger';
-
-// eslint-disable-next-line @typescript-eslint/no-var-requires
-require('dotenv').config();
 
 const client = new CommandoClient({
   owner: process.env.BOT_OWNER,
@@ -45,4 +46,7 @@ client.registry
     dirname: path.join(__dirname, 'commands'),
   });
 
-client.login(process.env.BOT_TOKEN);
+(async () => {
+  await client.login(process.env.BOT_TOKEN);
+  await registerSlashCommands(client.user.id);
+})();
