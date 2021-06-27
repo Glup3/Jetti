@@ -1,9 +1,14 @@
 import { MessageEmbed } from 'discord.js';
-import { CommandoClient } from 'discord.js-commando';
 import axios from '../api/axios';
 import { getPlayer } from '../core/player';
 import { logger } from '../util/logger';
-import { ApplicationCommandOptionType, Interaction, SlashCommand, SlashCommandOption } from './types';
+import {
+  ApplicationCommandOptionType,
+  ApplicatonCommandInteractionDataOption,
+  Interaction,
+  SlashCommand,
+  SlashCommandOption,
+} from './types';
 
 const urlEnv = process.env.NODE_ENV === 'development' ? `/guilds/${process.env.GUILD_ID_DEV}` : '';
 const baseURL = 'https://discord.com/api/v8';
@@ -36,10 +41,17 @@ const playerRemoveCommand: SlashCommandOption = {
   ],
 };
 
+const playerTest: SlashCommandOption = {
+  name: 'test',
+  description: 'Test',
+  type: ApplicationCommandOptionType.SUB_COMMAND_GROUP,
+  options: [playerGetCommand],
+};
+
 const playerCommand: SlashCommand = {
   name: 'player',
   description: 'Commands related to players',
-  options: [playerGetCommand, playerRemoveCommand],
+  options: [playerGetCommand, playerRemoveCommand, playerTest],
 };
 
 const reply = async (interaction: Interaction, response: MessageEmbed | string): Promise<void> => {
@@ -66,7 +78,7 @@ const reply = async (interaction: Interaction, response: MessageEmbed | string):
   }
 };
 
-export const registerSlashCommands = async (applicationId: string, client: CommandoClient) => {
+export const registerSlashCommands = async (applicationId: string) => {
   const url = baseURL + `/applications/${applicationId}` + urlEnv + '/commands';
 
   try {
@@ -79,30 +91,55 @@ export const registerSlashCommands = async (applicationId: string, client: Comma
   } catch (err) {
     logger.error(err);
   }
+};
 
-  // TODO: Remove magic when it is officialy released
-  // @ts-expect-error: Event 'INTERACTION_CREATE' is not yet implemented in discord.js-commando
-  client.ws.on('INTERACTION_CREATE', async (interaction: Interaction) => {
-    const command = interaction.data.name.toLowerCase();
+export const handleSlashCommands = async (interaction: Interaction) => {
+  logger.info('interaction', interaction);
+  const { data } = interaction;
 
-    try {
-      if (command === 'sos') {
+  const commandArgs: string[] = [data.name.toLowerCase(), ...getSubCommand(data.options)];
+  const command = commandArgs.join(' ');
+
+  try {
+    switch (command) {
+      case 'sos': {
         reply(interaction, 'SOS received!');
+        break;
       }
 
-      if (command === 'player') {
-        const subCommand = interaction.data.options[0];
-
-        if (subCommand.name.toLowerCase() === 'get') {
-          const user = subCommand.options[0];
-          const resolvedUser = interaction.data.resolved.users[user.value];
-          const userTag = resolvedUser.username + '#' + resolvedUser.discriminator;
-
-          reply(interaction, await getPlayer(user.value, userTag));
-        }
+      case 'player get': {
+        const subCommand = data.options[0];
+        const user = subCommand.options[0];
+        const resolvedUser = data.resolved.users[user.value];
+        const userTag = resolvedUser.username + '#' + resolvedUser.discriminator;
+        reply(interaction, await getPlayer(user.value, userTag));
+        break;
       }
-    } catch (err) {
-      logger.error(err);
+
+      default: {
+        reply(interaction, `No implementation found for command '${command}'`);
+        break;
+      }
     }
-  });
+  } catch (err) {
+    logger.error(err);
+  }
+};
+
+const getSubCommand = (options: ApplicatonCommandInteractionDataOption[]): string[] => {
+  if (options === undefined) {
+    return [];
+  }
+
+  const option = options[0];
+
+  if (option.type === ApplicationCommandOptionType.SUB_COMMAND_GROUP) {
+    return [option.name.toLowerCase(), ...getSubCommand(option.options)];
+  }
+
+  if (option.type === ApplicationCommandOptionType.SUB_COMMAND) {
+    return [option.name.toLowerCase()];
+  }
+
+  throw new Error(`Unknown Sub Command Type: ${option.type}`);
 };

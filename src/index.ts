@@ -5,7 +5,7 @@ import { CommandoClient } from 'discord.js-commando';
 import path from 'path';
 import { botStatus } from './constants';
 import { randomStatus } from './core/status';
-import { registerSlashCommands } from './slc/slc';
+import { handleSlashCommands, registerSlashCommands } from './slc/slc';
 import { logger } from './util/logger';
 
 const client = new CommandoClient({
@@ -30,6 +30,10 @@ client
     logger.warn('Disconnected');
   });
 
+// TODO: Remove magic when it is officialy released
+// @ts-expect-error: Event 'INTERACTION_CREATE' is not yet implemented in discord.js-commando
+client.ws.on('INTERACTION_CREATE', handleSlashCommands);
+
 client.registry
   .registerGroups([
     ['team', 'Team commands'],
@@ -48,5 +52,5 @@ client.registry
 
 (async () => {
   await client.login(process.env.BOT_TOKEN);
-  await registerSlashCommands(client.user.id, client);
+  await registerSlashCommands(client.user.id);
 })();
