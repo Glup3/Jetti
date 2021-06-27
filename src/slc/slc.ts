@@ -41,6 +41,7 @@ export const importSlashCommands = async (applicationId: string) => {
 
   const promises = files.map(async (file) => {
     const command = await import(baseSrc + '/' + file);
+    logger.debug('importing %s', file);
     return axios.post(url, command.default);
   });
 
