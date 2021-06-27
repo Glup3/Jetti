@@ -1,6 +1,7 @@
 import { MessageEmbed } from 'discord.js';
+import glob from 'glob';
+import path from 'path';
 import axios from '../api/axios';
-import { getPlayer } from '../core/player';
 import { logger } from '../util/logger';
 import {
   ApplicationCommandOptionType,
@@ -54,7 +55,7 @@ const playerCommand: SlashCommand = {
   options: [playerGetCommand, playerRemoveCommand, playerTest],
 };
 
-const reply = async (interaction: Interaction, response: MessageEmbed | string): Promise<void> => {
+export const reply = async (interaction: Interaction, response: MessageEmbed | string): Promise<void> => {
   const callbackURL = baseURL + `/interactions/${interaction.id}/${interaction.token}/callback`;
   let data;
 
@@ -74,11 +75,11 @@ const reply = async (interaction: Interaction, response: MessageEmbed | string):
       data,
     });
   } catch (err) {
-    logger.error(err);
+    logger.error('Error replying to message', err);
   }
 };
 
-export const registerSlashCommands = async (applicationId: string) => {
+export const importSlashCommands = async (applicationId: string) => {
   const url = baseURL + `/applications/${applicationId}` + urlEnv + '/commands';
 
   try {
@@ -93,36 +94,44 @@ export const registerSlashCommands = async (applicationId: string) => {
   }
 };
 
-export const handleSlashCommands = async (interaction: Interaction) => {
-  logger.info('interaction', interaction);
-  const { data } = interaction;
+export const registerSlashCommands = async (): Promise<Map<string, (interaction: Interaction) => Promise<void>>> => {
+  const baseSrc = path.join(__dirname, '/commands');
+  const files = glob.sync('**/*.*(ts|js)', { cwd: baseSrc });
+  const slashCommands = new Map<string, () => Promise<void>>();
 
-  const commandArgs: string[] = [data.name.toLowerCase(), ...getSubCommand(data.options)];
+  for (const file of files) {
+    const command = file.slice(0, -3).replace(/\//g, ' ');
+
+    try {
+      const slashEvent = await import(baseSrc + '/' + file);
+      slashCommands.set(command, slashEvent.default);
+      logger.debug('Loaded Slash Command "%s"', command);
+    } catch (err) {
+      logger.error('Error importing %O', err);
+    }
+  }
+
+  return slashCommands;
+};
+
+export const handleSlashCommands = async (
+  interaction: Interaction,
+  slashCommands: Map<string, (interaction: Interaction) => Promise<void>>,
+) => {
+  const commandArgs: string[] = [interaction.data.name.toLowerCase(), ...getSubCommand(interaction.data.options)];
   const command = commandArgs.join(' ');
 
   try {
-    switch (command) {
-      case 'sos': {
-        reply(interaction, 'SOS received!');
-        break;
-      }
+    const handler = slashCommands.get(command);
 
-      case 'player get': {
-        const subCommand = data.options[0];
-        const user = subCommand.options[0];
-        const resolvedUser = data.resolved.users[user.value];
-        const userTag = resolvedUser.username + '#' + resolvedUser.discriminator;
-        reply(interaction, await getPlayer(user.value, userTag));
-        break;
-      }
-
-      default: {
-        reply(interaction, `No implementation found for command '${command}'`);
-        break;
-      }
+    if (handler) {
+      await handler(interaction);
+    } else {
+      reply(interaction, `No implementation found for command '${command}'`);
     }
   } catch (err) {
     logger.error(err);
+    reply(interaction, `Error occurred while executing command '${command}'`);
   }
 };
 
