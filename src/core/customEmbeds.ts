@@ -7,6 +7,7 @@ export const ErrorEmbed = (description: string): MessageEmbed => {
     title: 'Error occurred',
     description: description,
     timestamp: Date.now(),
+    type: 'rich',
   });
 };
 
@@ -16,5 +17,6 @@ export const WarningEmbed = (description: string): MessageEmbed => {
     title: 'Warning',
     description: description,
     timestamp: Date.now(),
+    type: 'rich',
   });
 };

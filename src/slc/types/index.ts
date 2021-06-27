@@ -6,11 +6,13 @@ import { InteractionRequestType } from './InteractionRequestType';
 import { SlashCommand } from './SlashCommand';
 import { SlashCommandOption } from './SlashCommandOption';
 import { SlashCommandOptionChoice } from './SlashCommandOptionChoice';
+import { ApplicationCommandInteractionDataResolved } from './ApplicationCommandInteractionDataResolved';
 
 export {
   ApplicationCommandInteractionData,
   ApplicationCommandOptionType,
   ApplicatonCommandInteractionDataOption,
+  ApplicationCommandInteractionDataResolved,
   Interaction,
   InteractionRequestType,
   SlashCommand,

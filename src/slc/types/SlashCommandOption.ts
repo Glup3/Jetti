@@ -7,5 +7,5 @@ export interface SlashCommandOption {
   description: string;
   required?: boolean;
   choices?: SlashCommandOptionChoice;
-  options?: SlashCommandOption;
+  options?: SlashCommandOption[];
 }
