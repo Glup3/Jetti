@@ -55,6 +55,6 @@ client.registry
   // TODO: Remove magic when it is officialy released
   // @ts-expect-error: Event 'INTERACTION_CREATE' is not yet implemented in discord.js-commando
   client.ws.on('INTERACTION_CREATE', (interaction: Interaction) => {
-    handleSlashCommands(interaction, slashCommands);
+    handleSlashCommands(interaction, slashCommands, client);
   });
 })();

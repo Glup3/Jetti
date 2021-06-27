@@ -1,59 +1,13 @@
 import { MessageEmbed } from 'discord.js';
+import { CommandoClient } from 'discord.js-commando';
 import glob from 'glob';
 import path from 'path';
 import axios from '../api/axios';
 import { logger } from '../util/logger';
-import {
-  ApplicationCommandOptionType,
-  ApplicatonCommandInteractionDataOption,
-  Interaction,
-  SlashCommand,
-  SlashCommandOption,
-} from './types';
+import { ApplicationCommandOptionType, ApplicatonCommandInteractionDataOption, Interaction } from './types';
 
 const urlEnv = process.env.NODE_ENV === 'development' ? `/guilds/${process.env.GUILD_ID_DEV}` : '';
 const baseURL = 'https://discord.com/api/v8';
-
-const playerGetCommand: SlashCommandOption = {
-  name: 'get',
-  description: 'Get information about a Player',
-  type: ApplicationCommandOptionType.SUB_COMMAND,
-  options: [
-    {
-      name: 'user',
-      description: 'Which player do you want?',
-      type: ApplicationCommandOptionType.USER,
-      required: true,
-    },
-  ],
-};
-
-const playerRemoveCommand: SlashCommandOption = {
-  name: 'remove',
-  description: 'Remove Player',
-  type: ApplicationCommandOptionType.SUB_COMMAND,
-  options: [
-    {
-      name: 'user',
-      description: 'Which player do you want?',
-      type: ApplicationCommandOptionType.USER,
-      required: true,
-    },
-  ],
-};
-
-const playerTest: SlashCommandOption = {
-  name: 'test',
-  description: 'Test',
-  type: ApplicationCommandOptionType.SUB_COMMAND_GROUP,
-  options: [playerGetCommand],
-};
-
-const playerCommand: SlashCommand = {
-  name: 'player',
-  description: 'Commands related to players',
-  options: [playerGetCommand, playerRemoveCommand, playerTest],
-};
 
 export const reply = async (interaction: Interaction, response: MessageEmbed | string): Promise<void> => {
   const callbackURL = baseURL + `/interactions/${interaction.id}/${interaction.token}/callback`;
@@ -82,19 +36,25 @@ export const reply = async (interaction: Interaction, response: MessageEmbed | s
 export const importSlashCommands = async (applicationId: string) => {
   const url = baseURL + `/applications/${applicationId}` + urlEnv + '/commands';
 
-  try {
-    await axios.post(url, {
-      name: 'sos',
-      description: 'Calls SOS',
-    } as SlashCommand);
+  const baseSrc = path.join(__dirname, '/imports');
+  const files = glob.sync('*.*(ts|js)', { cwd: baseSrc });
 
-    await axios.post(url, playerCommand);
+  const promises = files.map(async (file) => {
+    const command = await import(baseSrc + '/' + file);
+    return axios.post(url, command.default);
+  });
+
+  try {
+    await Promise.all(promises);
+    logger.info('Imported Slash Commands %O', files);
   } catch (err) {
     logger.error(err);
   }
 };
 
-export const registerSlashCommands = async (): Promise<Map<string, (interaction: Interaction) => Promise<void>>> => {
+export const registerSlashCommands = async (): Promise<
+  Map<string, (interaction: Interaction, client: CommandoClient) => Promise<void>>
+> => {
   const baseSrc = path.join(__dirname, '/commands');
   const files = glob.sync('**/*.*(ts|js)', { cwd: baseSrc });
   const slashCommands = new Map<string, () => Promise<void>>();
@@ -116,7 +76,8 @@ export const registerSlashCommands = async (): Promise<Map<string, (interaction:
 
 export const handleSlashCommands = async (
   interaction: Interaction,
-  slashCommands: Map<string, (interaction: Interaction) => Promise<void>>,
+  slashCommands: Map<string, (interaction: Interaction, client: CommandoClient) => Promise<void>>,
+  client: CommandoClient,
 ) => {
   const commandArgs: string[] = [interaction.data.name.toLowerCase(), ...getSubCommand(interaction.data.options)];
   const command = commandArgs.join(' ');
@@ -125,7 +86,7 @@ export const handleSlashCommands = async (
     const handler = slashCommands.get(command);
 
     if (handler) {
-      await handler(interaction);
+      await handler(interaction, client);
     } else {
       reply(interaction, `No implementation found for command '${command}'`);
     }
